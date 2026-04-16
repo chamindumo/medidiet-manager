@@ -1,21 +1,70 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import DashboardLayout from '../../components/DashboardLayout';
-import { ShieldCheck, Users, BarChart3, Settings, Activity, ClipboardCheck } from 'lucide-react';
-import { subscribeToCollection } from '../../services/firebaseService';
-
+import { ShieldCheck, Users, BarChart3, Settings, Activity, ClipboardCheck, Upload } from 'lucide-react';
+import { subscribeToCollection, addItem } from '../../services/firebaseService';
+import * as XLSX from 'xlsx';
 const AdminDashboard = () => {
     const [orders, setOrders] = useState([]);
     const [stock, setStock] = useState([]);
+    const [patients, setPatients] = useState([]);
     const [activeTab, setActiveTab] = useState('Overview');
+    const [isUploading, setIsUploading] = useState(false);
+    const fileInputRef = useRef(null);
 
     useEffect(() => {
         const unsubscribeOrders = subscribeToCollection('orders', setOrders);
         const unsubscribeStock = subscribeToCollection('stock', setStock);
+        const unsubscribePatients = subscribeToCollection('patients', setPatients);
         return () => {
             unsubscribeOrders();
             unsubscribeStock();
+            unsubscribePatients();
         };
     }, []);
+
+    const handleFileUpload = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        setIsUploading(true);
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            try {
+                const data = new Uint8Array(event.target.result);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const firstSheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[firstSheetName];
+                const json = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+
+                let count = 0;
+                for (const row of json) {
+                    const nameKey = Object.keys(row).find(k => k.trim() === 'Name');
+                    const dobKey = Object.keys(row).find(k => k.trim() === 'Birth Date');
+                    const roomKey = Object.keys(row).find(k => k.trim() === 'Room');
+                    const newNoKey = Object.keys(row).find(k => k.trim() === 'New No.');
+                    const genderKey = Object.keys(row).find(k => k.trim() === 'Gender');
+
+                    if (nameKey && row[nameKey]) {
+                        await addItem('patients', {
+                            name: row[nameKey],
+                            birthDate: dobKey ? row[dobKey] : '',
+                            room: roomKey ? row[roomKey] : '',
+                            roomNo: newNoKey ? row[newNoKey] : '',
+                            gender: genderKey ? row[genderKey] : ''
+                        });
+                        count++;
+                    }
+                }
+                alert(`Successfully uploaded \${count} patients.`);
+            } catch (error) {
+                console.error("Error uploading excel:", error);
+                alert("Failed to parse the file.");
+            }
+            setIsUploading(false);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+        };
+        reader.readAsArrayBuffer(file);
+    };
 
     const totalMeals = orders.length;
     const criticalSupplies = stock.filter(item => item.status === 'Low Stock' || item.status === 'Out of Stock').length;
@@ -81,7 +130,7 @@ const AdminDashboard = () => {
                         <section className="glass" style={{ padding: '2rem', borderRadius: '24px' }}>
                             <h2 style={{ marginBottom: '1.5rem' }}>Ward Monitoring</h2>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                {['Ward A', 'Ward B', 'Ward C', 'ICU'].map((ward, i) => (
+                                {['A-Wing', 'B-Wing', 'C-Wing', 'Care Center', 'St. Michels'].map((ward, i) => (
                                     <div key={i} className="flex" style={{ justifyContent: 'space-between', padding: '1rem', background: 'rgba(255,255,255,0.02)', borderRadius: '12px' }}>
                                         <span style={{ fontWeight: '500' }}>{ward}</span>
                                         <span style={{ color: 'var(--primary)', fontSize: '0.85rem' }}>View Board</span>
@@ -92,7 +141,61 @@ const AdminDashboard = () => {
                     </>
                 )}
 
-                {activeTab !== 'Overview' && (
+                {activeTab === 'Patient Database' && (
+                    <section className="glass" style={{ padding: '2.5rem', borderRadius: '24px', gridColumn: '1 / -1' }}>
+                        <div className="flex" style={{ justifyContent: 'space-between', marginBottom: '2rem', alignItems: 'center' }}>
+                            <h2 style={{ margin: 0 }}>Resident Database</h2>
+                            <div>
+                                <input
+                                    type="file"
+                                    accept=".xlsx, .xls"
+                                    style={{ display: 'none' }}
+                                    ref={fileInputRef}
+                                    onChange={handleFileUpload}
+                                />
+                                <button className="btn btn-primary" onClick={() => fileInputRef.current.click()} disabled={isUploading}>
+                                    <Upload size={18} style={{ marginRight: '0.5rem', verticalAlign: 'middle', display: 'inline-block' }} /> 
+                                    {isUploading ? 'Uploading...' : 'Upload Excel'}
+                                </button>
+                            </div>
+                        </div>
+
+                        {patients.length === 0 ? (
+                            <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-muted)' }}>
+                                <Users size={48} style={{ margin: '0 auto 1rem', opacity: 0.5 }} />
+                                <p>No patients in the database yet.</p>
+                                <p style={{ fontSize: '0.9rem' }}>Upload a resident activity list to get started.</p>
+                            </div>
+                        ) : (
+                            <div style={{ maxHeight: '600px', overflowY: 'auto' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                    <thead style={{ position: 'sticky', top: 0, background: 'rgba(15, 23, 42, 0.9)', zIndex: 1, backdropFilter: 'blur(8px)' }}>
+                                        <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--border)' }}>
+                                            <th style={{ padding: '1rem', color: 'var(--text-muted)' }}>NAME</th>
+                                            <th style={{ padding: '1rem', color: 'var(--text-muted)' }}>ROOM</th>
+                                            <th style={{ padding: '1rem', color: 'var(--text-muted)' }}>NEW NO.</th>
+                                            <th style={{ padding: '1rem', color: 'var(--text-muted)' }}>BIRTH DATE</th>
+                                            <th style={{ padding: '1rem', color: 'var(--text-muted)' }}>GENDER</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {patients.map((patient, index) => (
+                                            <tr key={patient.id || index} style={{ borderBottom: '1px solid rgba(255,255,255,0.02)' }}>
+                                                <td style={{ padding: '1.2rem', fontWeight: '500' }}>{patient.name}</td>
+                                                <td style={{ padding: '1.2rem' }}>{patient.room}</td>
+                                                <td style={{ padding: '1.2rem' }}>{patient.roomNo}</td>
+                                                <td style={{ padding: '1.2rem' }}>{patient.birthDate}</td>
+                                                <td style={{ padding: '1.2rem' }}>{patient.gender}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </section>
+                )}
+
+                {activeTab !== 'Overview' && activeTab !== 'Patient Database' && (
                     <section className="glass" style={{ padding: '4rem', borderRadius: '24px', textAlign: 'center' }}>
                         <h2>{activeTab} Management Portal</h2>
                         <p style={{ color: 'var(--text-muted)', marginTop: '1rem' }}>Hospital standards and protocols are active for this module.</p>

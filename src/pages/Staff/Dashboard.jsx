@@ -4,7 +4,7 @@ import { ClipboardList, Plus, ShoppingBag, User, Trash2, Bed } from 'lucide-reac
 import { subscribeToCollection, addItem, deleteItem } from '../../services/firebaseService';
 
 const StaffDashboard = () => {
-    const [activeWard, setActiveWard] = useState('Ward A');
+    const [activeWard, setActiveWard] = useState('A-Wing');
     const [patientName, setPatientName] = useState('');
     const [dietaryNotes, setDietaryNotes] = useState('');
     const [orders, setOrders] = useState([]);
@@ -66,7 +66,7 @@ const StaffDashboard = () => {
                             <div style={{ marginBottom: '1.5rem' }}>
                                 <h2 style={{ marginBottom: '1rem' }}>Dietary Entry - {activeWard}</h2>
                                 <div className="flex" style={{ gap: '0.8rem', marginBottom: '1.5rem' }}>
-                                    {['Ward A', 'Ward B', 'Ward C', 'ICU'].map(w => (
+                                    {['A-Wing', 'B-Wing', 'C-Wing', 'Care Center', 'St. Michels'].map(w => (
                                         <button key={w} onClick={() => setActiveWard(w)} style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid var(--border)', background: activeWard === w ? 'var(--primary)' : 'transparent', color: 'white', cursor: 'pointer' }}>{w}</button>
                                     ))}
                                 </div>
@@ -134,7 +134,7 @@ const StaffDashboard = () => {
                     <section className="glass" style={{ padding: '3rem', borderRadius: '24px', textAlign: 'center' }}>
                         <h2 style={{ marginBottom: '2rem' }}>Hospital Wards Overview</h2>
                         <div className="grid" style={{ gridTemplateColumns: 'repeat(2, 1fr)', gap: '2rem', maxWidth: '600px', margin: '0 auto' }}>
-                            {['Ward A', 'Ward B', 'Ward C', 'ICU'].map(w => (
+                            {['A-Wing', 'B-Wing', 'C-Wing', 'Care Center', 'St. Michels'].map(w => (
                                 <div key={w} className="glass" style={{ padding: '2rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', border: activeWard === w ? '2px solid var(--primary)' : '1px solid var(--border)' }}>
                                     <Bed size={32} style={{ marginBottom: '1rem', color: activeWard === w ? 'var(--primary)' : 'var(--text-muted)' }} />
                                     {w}
