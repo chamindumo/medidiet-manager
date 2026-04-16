@@ -9,15 +9,18 @@ const StaffDashboard = () => {
     const [dietaryNotes, setDietaryNotes] = useState('');
     const [orders, setOrders] = useState([]);
     const [menuItems, setMenuItems] = useState([]);
+    const [patients, setPatients] = useState([]);
     const [currentOrder, setCurrentOrder] = useState([]);
     const [activeTab, setActiveTab] = useState('Patient Meals');
 
     useEffect(() => {
         const unsubscribeOrders = subscribeToCollection('orders', setOrders);
         const unsubscribeMenu = subscribeToCollection('menu', setMenuItems);
+        const unsubscribePatients = subscribeToCollection('patients', setPatients);
         return () => {
             unsubscribeOrders();
             unsubscribeMenu();
+            unsubscribePatients();
         };
     }, []);
 
@@ -67,11 +70,37 @@ const StaffDashboard = () => {
                                 <h2 style={{ marginBottom: '1rem' }}>Dietary Entry - {activeWard}</h2>
                                 <div className="flex" style={{ gap: '0.8rem', marginBottom: '1.5rem' }}>
                                     {['A-Wing', 'B-Wing', 'C-Wing', 'Care Center', 'St. Michels'].map(w => (
-                                        <button key={w} onClick={() => setActiveWard(w)} style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid var(--border)', background: activeWard === w ? 'var(--primary)' : 'transparent', color: 'white', cursor: 'pointer' }}>{w}</button>
+                                        <button key={w} onClick={() => { setActiveWard(w); setPatientName(''); }} style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid var(--border)', background: activeWard === w ? 'var(--primary)' : 'transparent', color: 'white', cursor: 'pointer' }}>{w}</button>
                                     ))}
                                 </div>
                                 <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                                    <input placeholder="Patient Name" value={patientName} onChange={e => setPatientName(e.target.value)} required />
+                                    <select 
+                                        value={patientName} 
+                                        onChange={e => setPatientName(e.target.value)} 
+                                        required 
+                                        style={{ padding: '0.8rem', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-card)', color: 'var(--text-main)' }}
+                                    >
+                                        <option value="" disabled>Select Patient Name</option>
+                                        {(() => {
+                                            const getPrefix = (ward) => {
+                                                if (ward === 'A-Wing') return 'A-';
+                                                if (ward === 'B-Wing') return 'B-';
+                                                if (ward === 'C-Wing') return 'C-';
+                                                if (ward === 'Care Center') return 'NU-';
+                                                return ward;
+                                            };
+                                            const prefix = getPrefix(activeWard);
+                                            const filteredPatients = patients.filter(p => p.room && p.room.startsWith(prefix));
+                                            
+                                            if (filteredPatients.length === 0) {
+                                                return <option value="" disabled>No patients in {activeWard}</option>;
+                                            }
+                                            
+                                            return filteredPatients.map(p => (
+                                                <option key={p.id || p.name} value={p.name}>{p.name} {p.roomNo ? `(#${p.roomNo})` : ''}</option>
+                                            ));
+                                        })()}
+                                    </select>
                                     <input placeholder="Dietary Restrictions (e.g. No Salt)" value={dietaryNotes} onChange={e => setDietaryNotes(e.target.value)} />
                                 </div>
                             </div>
